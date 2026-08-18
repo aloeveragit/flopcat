@@ -62,12 +62,25 @@
     position:absolute;top:7%;left:50%;transform:translateX(-50%);
     width:min(44%,250px);height:32%;
     background:linear-gradient(180deg,#e2e8e3,#ccd7d1);
-    border:10px solid #f3eee1;border-radius:6px;opacity:.9;
+    border:10px solid #f3eee1;border-radius:6px;opacity:.95;
     box-shadow:0 0 0 2px rgba(0,0,0,.05),0 10px 24px rgba(0,0,0,.08);
+    overflow:hidden;
   }
-  #window::before,#window::after{content:"";position:absolute;background:#f3eee1;}
+  #window::before,#window::after{content:"";position:absolute;background:#f3eee1;z-index:3;}
   #window::before{left:50%;top:0;bottom:0;width:8px;transform:translateX(-50%);}
   #window::after{top:50%;left:0;right:0;height:8px;transform:translateY(-50%);}
+  #glass{
+    position:absolute;inset:0;z-index:4;pointer-events:none;
+    background:linear-gradient(118deg,rgba(255,255,255,.32) 0 18%,transparent 18% 44%,rgba(255,255,255,.18) 44% 52%,transparent 52%);
+  }
+  #peeker{
+    position:absolute;left:0;right:0;bottom:0;height:100%;z-index:2;
+    transform:translateY(112%);
+    transition:transform .5s cubic-bezier(.24,1.4,.4,1);
+    will-change:transform;
+  }
+  #peeker.in{transform:translateY(0);}
+  #peeker svg{width:100%;height:100%;display:block;overflow:visible;}
 
   #bed{position:relative;width:min(96vw,680px);height:48vh;max-height:440px;}
   #headboard{
@@ -133,8 +146,17 @@
   #sound-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
   #sound-btn.off{opacity:.55;}
 
-  @media (max-width:480px){
+  @media (max-width:560px){
     #title{font-size:19px;} #subtitle{font-size:10.5px;} #pose-label{font-size:12px;top:74px;}
+    /* bigger window, centred in the upper half; the sleeping cat sits mid-mattress */
+    #window{width:min(58%,240px);height:26%;top:16%;border-width:8px;}
+    #window::before{width:7px;} #window::after{height:7px;}
+    #mattress{height:62.5%;}
+    #cat-wrap{top:57%;width:min(92vw,430px);height:min(69vw,322px);}
+    #bed{height:52vh;}
+    /* the hint would land on the mattress here — the subtitle already says the same thing */
+    #hint{display:none;}
+    #sound-btn{bottom:10px;right:12px;padding:8px 13px;font-size:12px;}
   }
   @media (prefers-reduced-motion:reduce){
     #cat-wrap.plop,#cat-wrap.breathe{animation:none!important;}
@@ -157,7 +179,10 @@
   <div id="pose-label"></div>
 
   <div id="scene">
-    <div id="window"></div>
+    <div id="window">
+      <div id="peeker"></div>
+      <div id="glass"></div>
+    </div>
     <div id="bed">
       <div id="headboard"></div>
       <div id="mattress"></div>
@@ -502,8 +527,135 @@
     }
   }
 
+
+  /* =================== GINGER NEIGHBOUR IN THE WINDOW =================== */
+  const Peeker = (function(){
+    const box = document.getElementById('peeker');
+    const G = {
+      fur:'#e2953f', furD:'#c9762a', stripe:'#b8681f',
+      muzzle:'#faeedd', ear:'#eaa3a3', ink:'#3a2a1c',
+      white:'#fff', eye:'#8bbf4d', tongue:'#f18e9c', nose:'#e08585', pawPad:'#e8a9a9'
+    };
+
+    // grimaces: face squashed on glass, winking, gasping, grumpy, upside-down...
+    const moods = [
+      { n:'прижался к стеклу', sx:1.3, sy:.78, rot:0,  y:6,  eL:.35,eR:.35, tongue:1, mouth:'flat', ear:.25, paws:1, squash:1 },
+      { n:'только глаза',      sx:1,   sy:1,   rot:0,  y:42, eL:1,  eR:1,   tongue:0, mouth:'smile',ear:1,   paws:0, squash:0 },
+      { n:'подмигивает',       sx:1,   sy:1,   rot:-8, y:4,  eL:.05,eR:1,   tongue:0, mouth:'grin', ear:1,   paws:1, squash:0 },
+      { n:'ахнул',             sx:.96, sy:1.06,rot:4,  y:2,  eL:1.25,eR:1.25,tongue:0,mouth:'o',    ear:1,   paws:1, squash:0 },
+      { n:'недоволен',         sx:1.04,sy:.98, rot:-10,y:8,  eL:.45,eR:.45, tongue:0, mouth:'frown',ear:.15, paws:1, squash:0 },
+      { n:'вверх ногами',      sx:1,   sy:1,   rot:180,y:14, eL:.9, eR:.9,  tongue:1, mouth:'smile',ear:.8,  paws:0, squash:0 },
+      { n:'склонил голову',    sx:1,   sy:1,   rot:26, y:4,  eL:1,  eR:1,   tongue:.6,mouth:'grin', ear:1,   paws:1, squash:0 },
+      { n:'крадётся сбоку',    sx:1,   sy:1,   rot:12, y:16, eL:.5, eR:.5,  tongue:0, mouth:'smirk',ear:.7,  paws:0, squash:0, x:-38 },
+      { n:'расплющил нос',     sx:1.22,sy:.86, rot:6,  y:10, eL:.7, eR:.15, tongue:0, mouth:'flat', ear:.35, paws:1, squash:1, x:26 }
+    ];
+
+    function mouthPath(m, y){
+      if(m==='o')     return '<ellipse cx="0" cy="'+(y+7)+'" rx="9" ry="11" fill="'+G.ink+'"/><ellipse cx="0" cy="'+(y+11)+'" rx="6" ry="6" fill="'+G.tongue+'"/>';
+      if(m==='frown') return '<path d="M -13 '+(y+11)+' Q 0 '+(y+1)+' 13 '+(y+11)+'" stroke="'+G.ink+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+      if(m==='flat')  return '<path d="M -13 '+(y+6)+' L 13 '+(y+6)+'" stroke="'+G.ink+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+      if(m==='smirk') return '<path d="M -12 '+(y+5)+' Q 0 '+(y+12)+' 13 '+(y+2)+'" stroke="'+G.ink+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+      if(m==='grin')  return '<path d="M -14 '+(y+2)+' Q 0 '+(y+15)+' 14 '+(y+2)+'" stroke="'+G.ink+'" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
+      return '<path d="M 0 '+y+' Q -7 '+(y+8)+' -14 '+(y+3)+'" stroke="'+G.ink+'" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+           + '<path d="M 0 '+y+' Q 7 '+(y+8)+' 14 '+(y+3)+'" stroke="'+G.ink+'" stroke-width="2.2" fill="none" stroke-linecap="round"/>';
+    }
+
+    function eye(side, open, squash){
+      const cx = side*20, cy = -4;
+      if(open < 0.2){
+        return '<path d="M '+(cx-10)+' '+cy+' Q '+cx+' '+(cy+6)+' '+(cx+10)+' '+cy+'" stroke="'+G.ink+'" stroke-width="2.8" fill="none" stroke-linecap="round"/>';
+      }
+      const rx = 10*(1+squash*0.25), ry = 10*open*(1-squash*0.3);
+      return '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'" fill="'+G.white+'"/>'
+           + '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+(rx*0.72)+'" ry="'+(ry*0.92)+'" fill="'+G.eye+'"/>'
+           + '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+(rx*0.24)+'" ry="'+(ry*0.8)+'" fill="'+G.ink+'"/>'
+           + '<circle cx="'+(cx+rx*0.3)+'" cy="'+(cy-ry*0.35)+'" r="'+(rx*0.18)+'" fill="'+G.white+'"/>';
+    }
+
+    function draw(m){
+      const R = 52, x = m.x || 0;
+      let s = '<svg viewBox="0 0 240 170" xmlns="http://www.w3.org/2000/svg">';
+
+      // paws gripping the sill
+      if(m.paws){
+        for(const side of [-1,1]){
+          const px = 120 + x + side*72;
+          s += '<g transform="translate('+px+' 150)">'
+             + '<ellipse cx="0" cy="0" rx="24" ry="19" fill="'+G.fur+'"/>'
+             + '<ellipse cx="0" cy="-6" rx="15" ry="10" fill="'+G.pawPad+'" opacity=".55"/>';
+          for(let i=-1;i<=1;i++) s += '<circle cx="'+(i*9)+'" cy="-13" r="5.5" fill="'+G.furD+'"/>';
+          s += '</g>';
+        }
+      }
+
+      s += '<g transform="translate('+(120+x)+' '+(88+m.y)+') rotate('+m.rot+') scale('+m.sx+' '+m.sy+')">';
+
+      // ears
+      const es = m.ear;
+      for(const side of [-1,1]){
+        const tipx = side*(34+12*es), tipy = -40-20*es;
+        s += '<path d="M '+(side*12)+' -40 L '+tipx+' '+tipy+' L '+(side*36)+' -6 Z" fill="'+G.fur+'"/>';
+        s += '<path d="M '+(side*17)+' -35 L '+(tipx*0.84)+' '+(tipy*0.8)+' L '+(side*31)+' -13 Z" fill="'+G.ear+'" opacity=".8"/>';
+      }
+
+      // head + tabby stripes
+      s += '<circle cx="0" cy="0" r="'+R+'" fill="'+G.fur+'"/>';
+      s += '<path d="M -6 -50 L 0 -22 L 6 -50 Z" fill="'+G.stripe+'" opacity=".7"/>';
+      s += '<path d="M -26 -45 L -18 -22 L -12 -46 Z" fill="'+G.stripe+'" opacity=".55"/>';
+      s += '<path d="M 26 -45 L 18 -22 L 12 -46 Z" fill="'+G.stripe+'" opacity=".55"/>';
+      s += '<path d="M -50 -14 Q -34 -10 -30 -18" stroke="'+G.stripe+'" stroke-width="5" fill="none" stroke-linecap="round" opacity=".5"/>';
+      s += '<path d="M 50 -14 Q 34 -10 30 -18" stroke="'+G.stripe+'" stroke-width="5" fill="none" stroke-linecap="round" opacity=".5"/>';
+
+      // cheeks / muzzle
+      s += '<path d="M -46 6 C -28 28, 28 28, 46 6 C 44 32, 20 44, 0 44 C -20 44, -44 32, -46 6 Z" fill="'+G.muzzle+'"/>';
+      s += '<circle cx="-18" cy="22" r="16" fill="'+G.muzzle+'"/><circle cx="18" cy="22" r="16" fill="'+G.muzzle+'"/>';
+
+      s += eye(-1, m.eL, m.squash) + eye(1, m.eR, m.squash);
+
+      // nose (flattens when squashed on the glass)
+      s += '<path d="M 0 '+(10)+' L '+(-7-m.squash*4)+' '+(18)+' L '+(7+m.squash*4)+' '+(18)+' Z" fill="'+G.nose+'"/>';
+      s += mouthPath(m.mouth, 18);
+      if(m.tongue > 0.4){
+        const tx = m.tongue < 0.8 ? 11 : 0;
+        s += '<ellipse cx="'+tx+'" cy="32" rx="8" ry="'+(9+m.squash*3)+'" fill="'+G.tongue+'"/>';
+      }
+
+      // whiskers
+      s += '<g stroke="#fffaf0" stroke-width="1.8" stroke-linecap="round" opacity=".95">'
+         + '<path d="M -28 14 L -74 6"/><path d="M -28 22 L -76 24"/><path d="M -28 29 L -72 40"/>'
+         + '<path d="M 28 14 L 74 6"/><path d="M 28 22 L 76 24"/><path d="M 28 29 L 72 40"/></g>';
+
+      s += '</g></svg>';
+      box.innerHTML = s;
+    }
+
+    let visible = false;
+    let countdown = 1 + Math.floor(Math.random()*2); // shows up early, then 2-5 clicks apart
+    let lastMood = -1;
+
+    return {
+      onFlop: function(){
+        if(visible){
+          box.classList.remove('in');
+          visible = false;
+          countdown = 2 + Math.floor(Math.random()*4); // 2..5 clicks until next visit
+          return;
+        }
+        countdown--;
+        if(countdown > 0) return;
+        let i;
+        do { i = Math.floor(Math.random()*moods.length); } while(i === lastMood && moods.length > 1);
+        lastMood = i;
+        draw(moods[i]);
+        box.classList.add('in');
+        visible = true;
+      }
+    };
+  })();
+
   function flop(){
     Audio.wake();
+    Peeker.onFlop();
     let i;
     do { i = Math.floor(Math.random()*poses.length); } while(i===lastIndex && poses.length>1);
     lastIndex = i;
