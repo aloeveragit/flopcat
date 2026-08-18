@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Плюх! Кот на кровати</title>
+<style>
+  :root{
+    --wall:#e9e1d1;
+    --wall-dark:#d8cdb7;
+    --cushion:#33514a;
+    --cushion-stripe:#efe8d8;
+    --wood:#8a5a3b;
+    --wood-dark:#6b4229;
+    --ink:#2c2620;
+    --accent:#d98c3d;
+    --paper:#f8f3e7;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;height:100%;overflow:hidden;
+    background:var(--wall);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;touch-action:manipulation;
+  }
+  #stage{
+    position:relative;width:100%;height:100%;
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(255,255,255,.18), transparent 55%),
+      linear-gradient(180deg,var(--wall) 0%,var(--wall-dark) 100%);
+    cursor:pointer;display:flex;flex-direction:column;
+  }
+  #hud{
+    position:absolute;top:0;left:0;right:0;padding:18px 20px 10px;
+    display:flex;justify-content:space-between;align-items:flex-start;
+    z-index:20;pointer-events:none;
+  }
+  #title{
+    font-family:Georgia,'Times New Roman',serif;
+    font-size:23px;font-weight:700;margin:0;color:var(--ink);
+    text-shadow:0 1px 0 rgba(255,255,255,.45);
+  }
+  #subtitle{font-size:12px;opacity:.62;margin-top:3px;color:var(--ink);}
+  #counter{
+    background:var(--paper);border-radius:14px;padding:8px 14px;text-align:center;min-width:66px;
+    box-shadow:0 3px 0 rgba(0,0,0,.12),0 6px 14px rgba(0,0,0,.08);
+  }
+  #counter .num{font-family:Georgia,serif;font-size:21px;font-weight:800;color:var(--accent);line-height:1;}
+  #counter .lbl{font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink);opacity:.55;margin-top:3px;}
+
+  #pose-label{
+    position:absolute;top:80px;left:50%;transform:translateX(-50%) translateY(6px);
+    background:rgba(44,38,32,.9);color:var(--paper);padding:7px 18px;border-radius:999px;
+    font-size:13.5px;z-index:20;opacity:0;transition:opacity .35s ease,transform .35s ease;
+    pointer-events:none;white-space:nowrap;
+  }
+  #pose-label.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  #scene{flex:1;position:relative;display:flex;align-items:flex-end;justify-content:center;}
+  #window{
+    position:absolute;top:7%;left:50%;transform:translateX(-50%);
+    width:min(44%,250px);height:32%;
+    background:linear-gradient(180deg,#e2e8e3,#ccd7d1);
+    border:10px solid #f3eee1;border-radius:6px;opacity:.95;
+    box-shadow:0 0 0 2px rgba(0,0,0,.05),0 10px 24px rgba(0,0,0,.08);
+    overflow:hidden;
+  }
+  #window::before,#window::after{content:"";position:absolute;background:#f3eee1;z-index:3;}
+  #window::before{left:50%;top:0;bottom:0;width:8px;transform:translateX(-50%);}
+  #window::after{top:50%;left:0;right:0;height:8px;transform:translateY(-50%);}
+  #glass{
+    position:absolute;inset:0;z-index:4;pointer-events:none;
+    background:linear-gradient(118deg,rgba(255,255,255,.32) 0 18%,transparent 18% 44%,rgba(255,255,255,.18) 44% 52%,transparent 52%);
+  }
+  #peeker{
+    position:absolute;left:0;right:0;bottom:0;height:100%;z-index:2;
+    transform:translateY(112%);
+    transition:transform .5s cubic-bezier(.24,1.4,.4,1);
+    will-change:transform;
+  }
+  #peeker.in{transform:translateY(0);}
+  #peeker svg{width:100%;height:100%;display:block;overflow:visible;}
+
+  #bed{position:relative;width:min(96vw,680px);height:48vh;max-height:440px;}
+  #headboard{
+    position:absolute;left:2%;right:2%;top:0;height:20%;
+    background:linear-gradient(180deg,var(--wood),var(--wood-dark));
+    border-radius:18px 18px 4px 4px;
+    box-shadow:inset 0 -6px 10px rgba(0,0,0,.15);
+  }
+  #mattress{
+    position:absolute;left:0;right:0;bottom:6%;height:56%;
+    background:repeating-linear-gradient(90deg,var(--cushion-stripe) 0 18px,var(--cushion) 18px 54px);
+    border-radius:28px;
+    box-shadow:0 18px 0 rgba(0,0,0,.06),0 26px 40px rgba(0,0,0,.18),
+      inset 0 6px 12px rgba(255,255,255,.15),inset 0 -12px 20px rgba(0,0,0,.14);
+  }
+  #frame-shadow{
+    position:absolute;left:4%;right:4%;bottom:0;height:8%;
+    background:rgba(0,0,0,.18);filter:blur(7px);border-radius:50%;
+  }
+
+  #cat-wrap{
+    position:absolute;left:50%;top:44%;
+    width:min(88vw,470px);height:min(66vw,352px);
+    transform:translate(-50%,-50%);
+    z-index:10;
+  }
+  #cat-svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 12px 16px rgba(0,0,0,.28));}
+  #cat-wrap.breathe{animation:breathe 3.4s ease-in-out infinite;}
+  @keyframes breathe{
+    0%,100%{transform:translate(-50%,-50%) scale(1,1);}
+    50%{transform:translate(-50%,-50%) scale(1.012,.988);}
+  }
+  #cat-wrap.plop{animation:plop .55s cubic-bezier(.3,1.5,.4,1);}
+  @keyframes plop{
+    0%{transform:translate(-50%,-50%) scale(1,1);}
+    25%{transform:translate(-50%,-45%) scale(1.09,.85);}
+    55%{transform:translate(-50%,-53%) scale(.95,1.07);}
+    80%{transform:translate(-50%,-49%) scale(1.03,.97);}
+    100%{transform:translate(-50%,-50%) scale(1,1);}
+  }
+
+  .puff{position:absolute;width:15px;height:15px;border-radius:50%;
+    background:rgba(255,255,255,.85);opacity:0;pointer-events:none;z-index:9;}
+  .puff.animate{animation:puffOut .65s ease-out forwards;}
+  @keyframes puffOut{
+    0%{opacity:.9;transform:scale(.3) translate(0,0);}
+    100%{opacity:0;transform:scale(1.9) translate(var(--dx),var(--dy));}
+  }
+
+  #hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+    font-size:12px;color:var(--ink);opacity:.5;z-index:20;pointer-events:none;text-align:center;}
+
+  #sound-btn{
+    position:absolute;bottom:12px;right:16px;z-index:30;
+    background:var(--paper);border:none;border-radius:999px;
+    padding:9px 15px;font-size:13px;color:var(--ink);cursor:pointer;
+    font-family:inherit;letter-spacing:.2px;
+    box-shadow:0 3px 0 rgba(0,0,0,.12),0 6px 14px rgba(0,0,0,.08);
+    transition:transform .15s ease,opacity .15s ease;
+  }
+  #sound-btn:hover{transform:translateY(-1px);}
+  #sound-btn:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.12);}
+  #sound-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
+  #sound-btn.off{opacity:.55;}
+
+  @media (max-width:560px){
+    #title{font-size:19px;} #subtitle{font-size:10.5px;} #pose-label{font-size:12px;top:74px;}
+    /* smaller window, and the sleeping cat sits closer to the middle of the bed */
+    #window{width:min(34%,150px);height:22%;top:6%;border-width:7px;}
+    #window::before{width:6px;} #window::after{height:6px;}
+    #cat-wrap{top:56%;width:min(92vw,430px);height:min(69vw,322px);}
+    #bed{height:52vh;}
+    #hint{font-size:11px;bottom:52px;}
+    #sound-btn{bottom:10px;right:12px;padding:8px 13px;font-size:12px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    #cat-wrap.plop,#cat-wrap.breathe{animation:none!important;}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="hud">
+    <div>
+      <p id="title">Плюх! 🐾</p>
+      <div id="subtitle">клик, тап или любая клавиша — новая поза</div>
+    </div>
+    <div id="counter">
+      <div class="num" id="count">0</div>
+      <div class="lbl">поз</div>
+    </div>
+  </div>
+
+  <div id="pose-label"></div>
+
+  <div id="scene">
+    <div id="window">
+      <div id="peeker"></div>
+      <div id="glass"></div>
+    </div>
+    <div id="bed">
+      <div id="headboard"></div>
+      <div id="mattress"></div>
+      <div id="frame-shadow"></div>
+      <div id="cat-wrap" class="breathe">
+        <svg id="cat-svg" viewBox="0 0 400 300"><g id="cat"></g></svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="hint">кот обожает валяться — жми ещё ✨</div>
+  <button id="sound-btn" type="button" aria-pressed="true">🔊 Музыка включена</button>
+</div>
+
+<script>
+(function(){
+  const svgG = document.getElementById('cat');
+  const catWrap = document.getElementById('cat-wrap');
+  const stage = document.getElementById('stage');
+  const countEl = document.getElementById('count');
+  const poseLabel = document.getElementById('pose-label');
+
+  /* =================== AUDIO =================== */
+  const Audio = (function(){
+    let ctx = null, master = null, musicGain = null;
+    let started = false, enabled = true, timer = null;
+    let step = 0, nextTime = 0;
+    const BPM = 122, SPB = 60/BPM, EIGHTH = SPB/2;
+
+    // Cheerful C-major-ish loop: bouncy bass + off-beat chord stabs + pentatonic melody
+    const bass  = [48,0,55,0, 45,0,52,0, 43,0,50,0, 41,0,48,55];
+    const melody= [72,76,79,76, 74,77,81,77, 72,76,79,84, 83,79,76,74];
+    const chordRoots = [60,0,0,0, 57,0,0,0, 55,0,0,0, 53,0,0,0];
+
+    const hz = n => 440*Math.pow(2,(n-69)/12);
+
+    function init(){
+      if(ctx) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) { enabled = false; return; }
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+      musicGain = ctx.createGain(); musicGain.gain.value = 0.24; musicGain.connect(master);
+    }
+
+    function tone(dest, type, freq, t0, dur, peak, glideTo){
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t0);
+      if(glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, t0+dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(peak, t0+0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+      o.connect(g); g.connect(dest);
+      o.start(t0); o.stop(t0+dur+0.05);
+    }
+
+    function shaker(t0, peak){
+      const len = Math.floor(ctx.sampleRate*0.05);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i=0;i<len;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/len,3);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const hp = ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=5200;
+      const g = ctx.createGain(); g.gain.value = peak;
+      src.connect(hp); hp.connect(g); g.connect(musicGain);
+      src.start(t0);
+    }
+
+    function scheduleStep(i, t){
+      const k = i % 16;
+      if(bass[k])   tone(musicGain,'triangle', hz(bass[k]),   t, EIGHTH*0.9, 0.42);
+      if(melody[k]) tone(musicGain,'square',   hz(melody[k]), t, EIGHTH*0.75, 0.10);
+      if(chordRoots[k]){
+        const r = chordRoots[k];
+        [0,4,7].forEach(function(iv){
+          tone(musicGain,'sawtooth', hz(r+iv), t+EIGHTH, EIGHTH*0.6, 0.045);
+        });
+      }
+      shaker(t, k%2 ? 0.10 : 0.05);
+    }
+
+    function tick(){
+      if(!ctx) return;
+      while(nextTime < ctx.currentTime + 0.18){
+        scheduleStep(step, nextTime);
+        step++; nextTime += EIGHTH;
+      }
+    }
+
+    function startMusic(){
+      if(started || !ctx || !enabled) return;
+      started = true;
+      nextTime = ctx.currentTime + 0.08;
+      tick();
+      timer = setInterval(tick, 50);
+    }
+
+    return {
+      wake: function(){
+        init();
+        if(!ctx) return;
+        if(ctx.state === 'suspended') ctx.resume();
+        startMusic();
+      },
+      toggle: function(){
+        enabled = !enabled;
+        if(master) master.gain.setTargetAtTime(enabled?0.9:0.0001, ctx.currentTime, 0.05);
+        if(enabled){ this.wake(); }
+        return enabled;
+      },
+      isOn: function(){ return enabled; }
+    };
+  })();
+
+  const C = {
+    fur:'#9aa1a9', furFar:'#828993',
+    belly:'#ded9d0', muzzle:'#e6e2da',
+    paw:'#b9bec5', pawFar:'#a3a9b1', bean:'#e3a8a8',
+    ear:'#dfa9ab', ink:'#33333a', white:'#fff', tongue:'#ef9aa4'
+  };
+  const rad = d => d*Math.PI/180;
+
+  /* ---------- limbs: always start INSIDE the torso ---------- */
+  function limbSVG(l, far){
+    const p0 = {x:l.ax, y:l.ay};
+    const p1 = {x:p0.x+Math.cos(rad(l.a1))*l.l1, y:p0.y+Math.sin(rad(l.a1))*l.l1};
+    const p2 = {x:p1.x+Math.cos(rad(l.a2))*l.l2, y:p1.y+Math.sin(rad(l.a2))*l.l2};
+    const col = far ? C.furFar : C.fur;
+    const pawCol = far ? C.pawFar : C.paw;
+    const w = l.w;
+    let s = '';
+    s += '<circle cx="'+p0.x+'" cy="'+p0.y+'" r="'+(w*0.66)+'" fill="'+col+'"/>';
+    s += '<path d="M '+p0.x+' '+p0.y+' Q '+p1.x+' '+p1.y+' '+p2.x+' '+p2.y+'" fill="none" stroke="'+col+'" stroke-width="'+w+'" stroke-linecap="round"/>';
+    s += '<g transform="translate('+p2.x+' '+p2.y+') rotate('+l.a2+')">';
+    s += '<ellipse cx="2" cy="0" rx="'+(w*0.62)+'" ry="'+(w*0.52)+'" fill="'+pawCol+'"/>';
+    for(let i=-1;i<=1;i++){
+      s += '<circle cx="'+(w*0.5)+'" cy="'+(i*w*0.32)+'" r="'+(w*0.15)+'" fill="'+C.bean+'" opacity="'+(far?0.5:0.75)+'"/>';
+    }
+    s += '</g>';
+    return s;
+  }
+
+  /* ---------- tail: tapered, welded to the rump ---------- */
+  function tailSVG(t){
+    let x=t.bx, y=t.by, s='';
+    const widths=[t.w, t.w*0.88, t.w*0.72];
+    for(let i=0;i<3;i++){
+      const nx = x+Math.cos(rad(t.a[i]))*t.l[i];
+      const ny = y+Math.sin(rad(t.a[i]))*t.l[i];
+      s += '<path d="M '+x+' '+y+' L '+nx+' '+ny+'" stroke="'+C.furFar+'" stroke-width="'+widths[i]+'" stroke-linecap="round" fill="none"/>';
+      x=nx; y=ny;
+    }
+    s += '<circle cx="'+x+'" cy="'+y+'" r="'+(t.w*0.46)+'" fill="'+C.furFar+'"/>';
+    return s;
+  }
+
+  /* ---------- head ---------- */
+  function headSVG(h){
+    const eo = h.eye, R = 46, es = h.ear;
+    let s = '<g transform="translate('+h.x+' '+h.y+') rotate('+h.rot+')">';
+    for(const side of [-1,1]){
+      const bx = side*30, tipx = side*(30+10*es), tipy = -34-16*es;
+      s += '<path d="M '+(side*10)+' -34 L '+tipx+' '+tipy+' L '+bx+' -6 Z" fill="'+C.fur+'"/>';
+      s += '<path d="M '+(side*14)+' -30 L '+(tipx*0.85)+' '+(tipy*0.82)+' L '+(bx*0.86)+' -12 Z" fill="'+C.ear+'" opacity=".75"/>';
+    }
+    s += '<circle cx="0" cy="0" r="'+R+'" fill="'+C.fur+'"/>';
+    s += '<path d="M -44 4 C -26 26, 26 26, 44 4 C 42 28, 20 40, 0 40 C -20 40, -42 28, -44 4 Z" fill="'+C.muzzle+'"/>';
+    s += '<circle cx="-16" cy="20" r="14" fill="'+C.muzzle+'"/><circle cx="16" cy="20" r="14" fill="'+C.muzzle+'"/>';
+    const ry = 1.6 + eo*8.5;
+    for(const side of [-1,1]){
+      s += '<ellipse cx="'+(side*19)+'" cy="-2" rx="8" ry="'+ry+'" fill="'+C.ink+'"/>';
+      if(eo>0.35) s += '<circle cx="'+(side*19+3)+'" cy="-5" r="2.6" fill="'+C.white+'"/>';
+      if(eo<0.25) s += '<path d="M '+(side*19-9)+' -2 Q '+(side*19)+' 3 '+(side*19+9)+' -2" stroke="'+C.ink+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+    }
+    s += '<path d="M 0 10 L -6 17 L 6 17 Z" fill="'+C.ear+'"/>';
+    s += '<path d="M 0 17 Q -7 '+(24+h.smile*4)+' -14 '+(19+h.smile*2)+'" stroke="'+C.ink+'" stroke-width="2" fill="none" stroke-linecap="round"/>';
+    s += '<path d="M 0 17 Q 7 '+(24+h.smile*4)+' 14 '+(19+h.smile*2)+'" stroke="'+C.ink+'" stroke-width="2" fill="none" stroke-linecap="round"/>';
+    if(h.tongue>0.5) s += '<ellipse cx="0" cy="27" rx="7" ry="9" fill="'+C.tongue+'"/>';
+    s += '<g stroke="#f2efe8" stroke-width="1.6" stroke-linecap="round" opacity=".9">'
+      +'<path d="M -26 12 L -66 4"/><path d="M -26 19 L -68 20"/><path d="M -26 25 L -64 34"/>'
+      +'<path d="M 26 12 L 66 4"/><path d="M 26 19 L 68 20"/><path d="M 26 25 L 64 34"/></g>';
+    s += '</g>';
+    return s;
+  }
+
+  /* ---------- whole cat ---------- */
+  function render(p){
+    const far = [p.limbs[1], p.limbs[3]];
+    const near = [p.limbs[0], p.limbs[2]];
+    let s = '<g transform="translate(200 165) rotate('+p.body.rot+')">';
+    if(p.tail.front < 0.5) s += tailSVG(p.tail);
+    s += far.map(function(l){return limbSVG(l,true);}).join('');
+    s += '<ellipse cx="0" cy="0" rx="'+p.body.rx+'" ry="'+p.body.ry+'" fill="'+C.fur+'"/>';
+    s += '<ellipse cx="'+p.body.bx+'" cy="'+p.body.by+'" rx="'+(p.body.rx*0.72)+'" ry="'+(p.body.ry*0.62)+'" fill="'+C.belly+'" opacity="'+p.body.belly+'"/>';
+    s += '<path d="M '+(p.head.x*0.35)+' '+(p.head.y*0.35)+' L '+(p.head.x*0.86)+' '+(p.head.y*0.86)+'" stroke="'+C.fur+'" stroke-width="42" stroke-linecap="round"/>';
+    s += near.map(function(l){return limbSVG(l,false);}).join('');
+    if(p.tail.front >= 0.5) s += tailSVG(p.tail);
+    s += headSVG(p.head);
+    s += '</g>';
+    svgG.innerHTML = s;
+  }
+
+  /* ---------- pose data ---------- */
+  const L = (ax,ay,a1,l1,a2,l2,w) => ({ax:ax,ay:ay,a1:a1,l1:l1,a2:a2,l2:l2,w:w});
+  const T = (bx,by,a1,a2,a3,l1,l2,l3,w,front) => ({bx:bx,by:by,a:[a1,a2,a3],l:[l1,l2,l3],w:w,front:front||0});
+
+  const poses = [
+    { name:"Звезда на спине",
+      body:{rx:88,ry:56,rot:0,bx:0,by:2,belly:.95},
+      head:{x:0,y:-84,rot:176,eye:.05,smile:1,tongue:0,ear:.4},
+      limbs:[L(-52,-16,-138,44,-166,36,26), L(52,-16,-42,44,-14,36,24),
+             L(-56,24,148,46,172,38,28), L(56,24,32,46,8,38,26)],
+      tail:T(70,34,60,95,130,34,30,26,20) },
+
+    { name:"Растянулся во всю длину",
+      body:{rx:112,ry:40,rot:-3,bx:0,by:8,belly:.35},
+      head:{x:-116,y:-16,rot:-10,eye:.25,smile:.6,tongue:0,ear:.9},
+      limbs:[L(-72,-6,186,50,179,42,24), L(-62,14,171,48,177,40,22),
+             L(74,8,-4,50,1,42,26), L(66,26,14,48,7,40,24)],
+      tail:T(104,14,12,32,54,36,32,28,20) },
+
+    { name:"Лапки кверху",
+      body:{rx:84,ry:58,rot:2,bx:0,by:4,belly:.95},
+      head:{x:-4,y:-86,rot:184,eye:.05,smile:1,tongue:0,ear:.3},
+      limbs:[L(-46,-22,-104,40,-152,32,25), L(46,-22,-76,40,-28,32,23),
+             L(-52,26,124,46,148,36,28), L(52,26,56,46,32,36,26)],
+      tail:T(66,40,66,104,142,34,30,26,20) },
+
+    { name:"Свесил лапы с бортика",
+      body:{rx:94,ry:46,rot:-7,bx:-6,by:10,belly:.3},
+      head:{x:-84,y:-34,rot:-26,eye:.95,smile:.2,tongue:0,ear:1},
+      limbs:[L(-52,14,96,50,102,42,24), L(-20,22,86,50,90,42,22),
+             L(56,8,22,42,52,32,27), L(46,24,44,40,74,30,25)],
+      tail:T(88,6,-16,-46,-78,34,30,26,20) },
+
+    { name:"Свернулся калачиком",
+      body:{rx:64,ry:58,rot:10,bx:-4,by:10,belly:.25},
+      head:{x:-46,y:28,rot:38,eye:.05,smile:.8,tongue:0,ear:.5},
+      limbs:[L(-28,12,152,30,192,26,22), L(-14,24,162,28,202,22,20),
+             L(28,20,118,32,168,26,25), L(36,2,108,30,158,24,23)],
+      tail:T(46,22,72,124,172,38,34,28,20,1) },
+
+    { name:"Полёт супергероя",
+      body:{rx:98,ry:44,rot:0,bx:0,by:8,belly:.3},
+      head:{x:-98,y:-14,rot:-6,eye:.9,smile:.9,tongue:0,ear:1},
+      limbs:[L(-62,-10,191,52,186,44,24), L(-58,16,178,52,182,44,22),
+             L(68,4,-6,52,-1,44,26), L(64,28,8,52,4,44,24)],
+      tail:T(96,10,4,-14,-34,36,32,26,20) },
+
+    { name:"Крендель на боку",
+      body:{rx:88,ry:50,rot:-18,bx:6,by:6,belly:.6},
+      head:{x:-70,y:-42,rot:-42,eye:.7,smile:.5,tongue:0,ear:.8},
+      limbs:[L(-44,-20,-122,42,-72,34,24), L(-30,4,-158,38,-112,30,22),
+             L(52,18,72,44,122,34,27), L(42,32,102,42,152,32,25)],
+      tail:T(78,30,96,146,190,34,30,26,20) },
+
+    { name:"Плюх мордой в матрас",
+      body:{rx:96,ry:48,rot:0,bx:0,by:8,belly:.3},
+      head:{x:-80,y:40,rot:96,eye:.05,smile:.4,tongue:0,ear:.2},
+      limbs:[L(-56,-8,202,48,216,38,24), L(-46,18,158,48,144,38,22),
+             L(60,0,-18,48,-34,38,27), L(56,26,20,48,36,38,25)],
+      tail:T(90,20,26,-8,-44,34,30,26,20) },
+
+    { name:"Дрыгает лапами",
+      body:{rx:86,ry:54,rot:4,bx:0,by:4,belly:.95},
+      head:{x:-14,y:-82,rot:198,eye:.1,smile:1,tongue:1,ear:.35},
+      limbs:[L(-48,-18,-142,42,-98,34,25), L(48,-18,-66,42,-118,34,23),
+             L(-52,24,-98,48,-68,38,28), L(52,24,-84,48,-114,38,26)],
+      tail:T(64,42,74,116,158,34,30,26,20) },
+
+    { name:"Полуоборот, лапы врозь",
+      body:{rx:90,ry:50,rot:14,bx:4,by:-4,belly:.7},
+      head:{x:74,y:-48,rot:32,eye:.85,smile:.4,tongue:0,ear:.9},
+      limbs:[L(48,-16,-52,44,-16,36,24), L(32,6,-92,42,-42,34,22),
+             L(-58,16,168,46,138,36,27), L(-46,30,148,44,118,34,25)],
+      tail:T(-78,26,150,186,222,34,30,26,20) },
+
+    { name:"Обнял собственный хвост",
+      body:{rx:80,ry:52,rot:-8,bx:-4,by:8,belly:.4},
+      head:{x:-52,y:-34,rot:-22,eye:.6,smile:.9,tongue:0,ear:.7},
+      limbs:[L(-38,6,142,36,102,30,23), L(-20,20,122,34,82,26,21),
+             L(38,22,102,38,152,30,26), L(50,6,82,36,132,28,24)],
+      tail:T(58,16,132,176,216,36,32,26,20,1) },
+
+    { name:"Тюлень (лапы назад)",
+      body:{rx:94,ry:46,rot:0,bx:0,by:8,belly:.3},
+      head:{x:-92,y:-20,rot:-12,eye:.9,smile:1,tongue:0,ear:1},
+      limbs:[L(-58,-8,196,46,190,38,24), L(-54,18,176,46,178,38,22),
+             L(54,-18,-32,46,-6,38,27), L(58,30,42,46,12,38,25)],
+      tail:T(90,16,16,42,72,34,30,26,20) }
+  ];
+
+  /* ---------- interpolation ---------- */
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function lerpObj(a,b,t){
+    if(typeof a === 'number') return a+(b-a)*t;
+    if(Array.isArray(a)) return a.map(function(v,i){ return lerpObj(v,b[i],t); });
+    const out = {};
+    for(const k in a){
+      if(typeof a[k] === 'string'){ out[k]=b[k]; continue; }
+      out[k] = lerpObj(a[k], b[k], t);
+    }
+    return out;
+  }
+  function geom(p){ return {body:p.body, head:p.head, limbs:p.limbs, tail:p.tail}; }
+  const easeOutBack = function(t){ const c=1.3; return 1 + (c+1)*Math.pow(t-1,3) + c*Math.pow(t-1,2); };
+
+  let current = clone(geom(poses[1]));
+  let anim = null, lastIndex = 1, count = 0;
+
+  function transitionTo(target){
+    const from = clone(current), to = clone(geom(target));
+    const start = performance.now(), dur = 680;
+    if(anim) cancelAnimationFrame(anim);
+    function step(now){
+      const t = Math.min(1,(now-start)/dur);
+      const e = easeOutBack(t);
+      const c = lerpObj(from,to,e);
+      c.tail.front = to.tail.front;
+      c.head.tongue = t>0.4 ? to.head.tongue : from.head.tongue;
+      current = c;
+      render(current);
+      if(t<1){ anim = requestAnimationFrame(step); }
+      else { current = to; render(current); anim = null; }
+    }
+    anim = requestAnimationFrame(step);
+  }
+
+  function spawnPuffs(){
+    const r = catWrap.getBoundingClientRect(), pr = stage.getBoundingClientRect();
+    const cx = r.left-pr.left+r.width/2, cy = r.top-pr.top+r.height*0.76;
+    for(let i=0;i<7;i++){
+      const p = document.createElement('div'); p.className='puff';
+      const a = Math.PI*2*i/7 + Math.random()*0.4, d = 40+Math.random()*36;
+      p.style.setProperty('--dx', Math.cos(a)*d+'px');
+      p.style.setProperty('--dy', (Math.sin(a)*d*0.5-12)+'px');
+      p.style.left=(cx-7)+'px'; p.style.top=(cy-7)+'px';
+      stage.appendChild(p);
+      requestAnimationFrame(function(){ p.classList.add('animate'); });
+      setTimeout(function(){ p.remove(); },700);
+    }
+  }
+
+
+  /* =================== GINGER NEIGHBOUR IN THE WINDOW =================== */
+  const Peeker = (function(){
+    const box = document.getElementById('peeker');
+    const G = {
+      fur:'#e2953f', furD:'#c9762a', stripe:'#b8681f',
+      muzzle:'#faeedd', ear:'#eaa3a3', ink:'#3a2a1c',
+      white:'#fff', eye:'#8bbf4d', tongue:'#f18e9c', nose:'#e08585', pawPad:'#e8a9a9'
+    };
+
+    // grimaces: face squashed on glass, winking, gasping, grumpy, upside-down...
+    const moods = [
+      { n:'прижался к стеклу', sx:1.3, sy:.78, rot:0,  y:6,  eL:.35,eR:.35, tongue:1, mouth:'flat', ear:.25, paws:1, squash:1 },
+      { n:'только глаза',      sx:1,   sy:1,   rot:0,  y:42, eL:1,  eR:1,   tongue:0, mouth:'smile',ear:1,   paws:0, squash:0 },
+      { n:'подмигивает',       sx:1,   sy:1,   rot:-8, y:4,  eL:.05,eR:1,   tongue:0, mouth:'grin', ear:1,   paws:1, squash:0 },
+      { n:'ахнул',             sx:.96, sy:1.06,rot:4,  y:2,  eL:1.25,eR:1.25,tongue:0,mouth:'o',    ear:1,   paws:1, squash:0 },
+      { n:'недоволен',         sx:1.04,sy:.98, rot:-10,y:8,  eL:.45,eR:.45, tongue:0, mouth:'frown',ear:.15, paws:1, squash:0 },
+      { n:'вверх ногами',      sx:1,   sy:1,   rot:180,y:14, eL:.9, eR:.9,  tongue:1, mouth:'smile',ear:.8,  paws:0, squash:0 },
+      { n:'склонил голову',    sx:1,   sy:1,   rot:26, y:4,  eL:1,  eR:1,   tongue:.6,mouth:'grin', ear:1,   paws:1, squash:0 },
+      { n:'крадётся сбоку',    sx:1,   sy:1,   rot:12, y:16, eL:.5, eR:.5,  tongue:0, mouth:'smirk',ear:.7,  paws:0, squash:0, x:-38 },
+      { n:'расплющил нос',     sx:1.22,sy:.86, rot:6,  y:10, eL:.7, eR:.15, tongue:0, mouth:'flat', ear:.35, paws:1, squash:1, x:26 }
+    ];
+
+    function mouthPath(m, y){
+      if(m==='o')     return '<ellipse cx="0" cy="'+(y+7)+'" rx="9" ry="11" fill="'+G.ink+'"/><ellipse cx="0" cy="'+(y+11)+'" rx="6" ry="6" fill="'+G.tongue+'"/>';
+      if(m==='frown') return '<path d="M -13 '+(y+11)+' Q 0 '+(y+1)+' 13 '+(y+11)+'" stroke="'+G.ink+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+      if(m==='flat')  return '<path d="M -13 '+(y+6)+' L 13 '+(y+6)+'" stroke="'+G.ink+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+      if(m==='smirk') return '<path d="M -12 '+(y+5)+' Q 0 '+(y+12)+' 13 '+(y+2)+'" stroke="'+G.ink+'" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+      if(m==='grin')  return '<path d="M -14 '+(y+2)+' Q 0 '+(y+15)+' 14 '+(y+2)+'" stroke="'+G.ink+'" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
+      return '<path d="M 0 '+y+' Q -7 '+(y+8)+' -14 '+(y+3)+'" stroke="'+G.ink+'" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+           + '<path d="M 0 '+y+' Q 7 '+(y+8)+' 14 '+(y+3)+'" stroke="'+G.ink+'" stroke-width="2.2" fill="none" stroke-linecap="round"/>';
+    }
+
+    function eye(side, open, squash){
+      const cx = side*20, cy = -4;
+      if(open < 0.2){
+        return '<path d="M '+(cx-10)+' '+cy+' Q '+cx+' '+(cy+6)+' '+(cx+10)+' '+cy+'" stroke="'+G.ink+'" stroke-width="2.8" fill="none" stroke-linecap="round"/>';
+      }
+      const rx = 10*(1+squash*0.25), ry = 10*open*(1-squash*0.3);
+      return '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'" fill="'+G.white+'"/>'
+           + '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+(rx*0.72)+'" ry="'+(ry*0.92)+'" fill="'+G.eye+'"/>'
+           + '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+(rx*0.24)+'" ry="'+(ry*0.8)+'" fill="'+G.ink+'"/>'
+           + '<circle cx="'+(cx+rx*0.3)+'" cy="'+(cy-ry*0.35)+'" r="'+(rx*0.18)+'" fill="'+G.white+'"/>';
+    }
+
+    function draw(m){
+      const R = 52, x = m.x || 0;
+      let s = '<svg viewBox="0 0 240 170" xmlns="http://www.w3.org/2000/svg">';
+
+      // paws gripping the sill
+      if(m.paws){
+        for(const side of [-1,1]){
+          const px = 120 + x + side*72;
+          s += '<g transform="translate('+px+' 150)">'
+             + '<ellipse cx="0" cy="0" rx="24" ry="19" fill="'+G.fur+'"/>'
+             + '<ellipse cx="0" cy="-6" rx="15" ry="10" fill="'+G.pawPad+'" opacity=".55"/>';
+          for(let i=-1;i<=1;i++) s += '<circle cx="'+(i*9)+'" cy="-13" r="5.5" fill="'+G.furD+'"/>';
+          s += '</g>';
+        }
+      }
+
+      s += '<g transform="translate('+(120+x)+' '+(88+m.y)+') rotate('+m.rot+') scale('+m.sx+' '+m.sy+')">';
+
+      // ears
+      const es = m.ear;
+      for(const side of [-1,1]){
+        const tipx = side*(34+12*es), tipy = -40-20*es;
+        s += '<path d="M '+(side*12)+' -40 L '+tipx+' '+tipy+' L '+(side*36)+' -6 Z" fill="'+G.fur+'"/>';
+        s += '<path d="M '+(side*17)+' -35 L '+(tipx*0.84)+' '+(tipy*0.8)+' L '+(side*31)+' -13 Z" fill="'+G.ear+'" opacity=".8"/>';
+      }
+
+      // head + tabby stripes
+      s += '<circle cx="0" cy="0" r="'+R+'" fill="'+G.fur+'"/>';
+      s += '<path d="M -6 -50 L 0 -22 L 6 -50 Z" fill="'+G.stripe+'" opacity=".7"/>';
+      s += '<path d="M -26 -45 L -18 -22 L -12 -46 Z" fill="'+G.stripe+'" opacity=".55"/>';
+      s += '<path d="M 26 -45 L 18 -22 L 12 -46 Z" fill="'+G.stripe+'" opacity=".55"/>';
+      s += '<path d="M -50 -14 Q -34 -10 -30 -18" stroke="'+G.stripe+'" stroke-width="5" fill="none" stroke-linecap="round" opacity=".5"/>';
+      s += '<path d="M 50 -14 Q 34 -10 30 -18" stroke="'+G.stripe+'" stroke-width="5" fill="none" stroke-linecap="round" opacity=".5"/>';
+
+      // cheeks / muzzle
+      s += '<path d="M -46 6 C -28 28, 28 28, 46 6 C 44 32, 20 44, 0 44 C -20 44, -44 32, -46 6 Z" fill="'+G.muzzle+'"/>';
+      s += '<circle cx="-18" cy="22" r="16" fill="'+G.muzzle+'"/><circle cx="18" cy="22" r="16" fill="'+G.muzzle+'"/>';
+
+      s += eye(-1, m.eL, m.squash) + eye(1, m.eR, m.squash);
+
+      // nose (flattens when squashed on the glass)
+      s += '<path d="M 0 '+(10)+' L '+(-7-m.squash*4)+' '+(18)+' L '+(7+m.squash*4)+' '+(18)+' Z" fill="'+G.nose+'"/>';
+      s += mouthPath(m.mouth, 18);
+      if(m.tongue > 0.4){
+        const tx = m.tongue < 0.8 ? 11 : 0;
+        s += '<ellipse cx="'+tx+'" cy="32" rx="8" ry="'+(9+m.squash*3)+'" fill="'+G.tongue+'"/>';
+      }
+
+      // whiskers
+      s += '<g stroke="#fffaf0" stroke-width="1.8" stroke-linecap="round" opacity=".95">'
+         + '<path d="M -28 14 L -74 6"/><path d="M -28 22 L -76 24"/><path d="M -28 29 L -72 40"/>'
+         + '<path d="M 28 14 L 74 6"/><path d="M 28 22 L 76 24"/><path d="M 28 29 L 72 40"/></g>';
+
+      s += '</g></svg>';
+      box.innerHTML = s;
+    }
+
+    let visible = false;
+    let countdown = 1 + Math.floor(Math.random()*2); // shows up early, then 2-5 clicks apart
+    let lastMood = -1;
+
+    return {
+      onFlop: function(){
+        if(visible){
+          box.classList.remove('in');
+          visible = false;
+          countdown = 2 + Math.floor(Math.random()*4); // 2..5 clicks until next visit
+          return;
+        }
+        countdown--;
+        if(countdown > 0) return;
+        let i;
+        do { i = Math.floor(Math.random()*moods.length); } while(i === lastMood && moods.length > 1);
+        lastMood = i;
+        draw(moods[i]);
+        box.classList.add('in');
+        visible = true;
+      }
+    };
+  })();
+
+  function flop(){
+    Audio.wake();
+    Peeker.onFlop();
+    let i;
+    do { i = Math.floor(Math.random()*poses.length); } while(i===lastIndex && poses.length>1);
+    lastIndex = i;
+    const pose = poses[i];
+    transitionTo(pose);
+
+    count++; countEl.textContent = count;
+    poseLabel.textContent = pose.name;
+    poseLabel.classList.remove('show'); void poseLabel.offsetWidth; poseLabel.classList.add('show');
+
+    catWrap.classList.remove('breathe','plop'); void catWrap.offsetWidth;
+    catWrap.classList.add('plop');
+    setTimeout(function(){ catWrap.classList.remove('plop'); catWrap.classList.add('breathe'); }, 560);
+
+    spawnPuffs();
+  }
+
+  render(current);
+
+  const soundBtn = document.getElementById('sound-btn');
+  soundBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    const on = Audio.toggle();
+    soundBtn.textContent = on ? '🔊 Музыка включена' : '🔇 Музыка выключена';
+    soundBtn.setAttribute('aria-pressed', String(on));
+    soundBtn.classList.toggle('off', !on);
+  });
+  soundBtn.addEventListener('touchstart', function(e){ e.stopPropagation(); }, {passive:true});
+  soundBtn.addEventListener('keydown', function(e){ e.stopPropagation(); });
+
+  stage.addEventListener('click', flop);
+  stage.addEventListener('touchstart', function(e){ e.preventDefault(); flop(); }, {passive:false});
+  window.addEventListener('keydown', function(e){ if(e.code==='Tab') return; flop(); });
+
+  // first pose without sound — browsers block audio until the user interacts
+  setTimeout(function(){
+    const p = poses[1];
+    transitionTo(p);
+    poseLabel.textContent = p.name;
+    poseLabel.classList.add('show');
+  }, 400);
+})();
+</script>
+</body>
+</html>
