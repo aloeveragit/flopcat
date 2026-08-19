@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>Плюх! Кот на кровати</title>
 <style>
   :root{
@@ -262,39 +259,6 @@
 </div>
 
 <script>
-/* ============================================================
-   AUTO-UPDATE
-   Bump APP_VERSION on every release AND put the same string
-   into version.txt next to index.html. Visitors on an old copy
-   reload themselves within a minute or on tab focus.
-   ============================================================ */
-const APP_VERSION = '2026-08-19-1';
-
-(function autoUpdate(){
-  function apply(latest){
-    if(!latest || latest === APP_VERSION) return;
-    // guard: never reload twice for the same version (avoids a loop if the host is slow to purge)
-    try{
-      if(sessionStorage.getItem('flopcat-reloaded') === latest) return;
-      sessionStorage.setItem('flopcat-reloaded', latest);
-    }catch(e){}
-    const u = new URL(location.href);
-    u.searchParams.set('v', latest);      // new URL = guaranteed fresh fetch
-    location.replace(u.toString());
-  }
-  function check(){
-    fetch('version.txt?t=' + Date.now(), {cache:'no-store'})
-      .then(function(r){ return r.ok ? r.text() : null; })
-      .then(function(t){ if(t) apply(t.trim()); })
-      .catch(function(){});
-  }
-  check();
-  setInterval(check, 60000);
-  document.addEventListener('visibilitychange', function(){
-    if(!document.hidden) check();
-  });
-})();
-
 (function(){
   const svgG = document.getElementById('cat');
   const catWrap = document.getElementById('cat-wrap');
